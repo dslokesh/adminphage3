@@ -8,8 +8,7 @@ use App\Mail\sendAPIRegisterToTechnicianMailable;
 use App\Mail\sendForgotPasswordToUserMailable;
 use App\Mail\RegisterToTechnicianAdminMailable;
 use App\Models\User;
-use App\Models\Company;
-use App\Models\TeamId;
+
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -36,18 +35,10 @@ class RegisterController extends BaseController
         $validator = Validator::make($request->all(), [
             'name' => 'required|max:255|sanitizeScripts',
             'lname' => 'nullable|max:255|sanitizeScripts',
-            //'phone' => 'nullable|max:20|sanitizeScripts',
-            'job_title' => 'nullable|max:255|sanitizeScripts',
-            'company_id' => 'required',
-            'delivery_address' => 'nullable|sanitizeScripts',
-            'delivery_address2' => 'nullable|sanitizeScripts',
-            'city' => 'nullable|sanitizeScripts',
-            'country' => 'nullable|sanitizeScripts',
-            'postcode' => 'nullable|max:20|sanitizeScripts',
+            'phone' => 'nullable|max:20|sanitizeScripts',
             'email' => 'required|max:255|sanitizeScripts|email|unique:users|regex:/^([a-z0-9\+_\-]+)(\.[a-z0-9\+_\-]+)*@([a-z0-9\-]+\.)+[a-z]{2,6}$/ix',
             //'password' => 'required|max:255|sanitizeScripts|min:8|regex:/^(?=.*\d)(?=.*[A-Z])[\w\W]{8,}$/',
            'password' => 'required|max:255|sanitizeScripts|min:8',
-            'image' => 'nullable|mimes:jpeg,jpg,png|max:' . ($options['allow_img_size'] * 1024),
             //'c_password' => 'required|same:password',
         ],
         [
@@ -76,111 +67,37 @@ class RegisterController extends BaseController
                 $errorMsg = $errors->first('name');
            elseif($errors->first('phone'))
                $errorMsg = $errors->first('phone'); 
-           elseif($errors->first('job_title'))
-               $errorMsg = $errors->first('job_title'); 
-           elseif($errors->first('delivery_address'))
-               $errorMsg = $errors->first('delivery_address'); 
-           elseif($errors->first('postcode'))
-               $errorMsg = $errors->first('postcode'); 
            elseif($errors->first('email'))
                $errorMsg = $errors->first('email');               
            elseif($errors->first('password'))
                $errorMsg = $errors->first('password'); 
-           elseif($errors->first('image'))
-               $errorMsg = $errors->first('image');       
-
+         
            return $this->sendError($errorMsg); 
            
         }
 
         $input = $request->all();
-        /** Below code for save image **/
-		$destinationPath = public_path('/uploads/users/');
-		$newName = '';
-		if ($request->hasFile('image')) {
-           
-			$fileName = $input['image']->getClientOriginalName();
-			$file = request()->file('image');
-			$fileNameArr = explode('.', $fileName);
-			$fileNameExt = end($fileNameArr);
-			$newName = date('His').rand() . time() . '.' . $fileNameExt;
-			
-			$file->move($destinationPath, $newName);
-			
-			//$user_config = json_decode($options['user'],true);
-			
-			$img = Image::make(public_path('/uploads/users/'.$newName));
-						
-            $img->resize(100, 100, function($constraint) {
-				$constraint->aspectRatio();
-			});
-			
-
-			$img->save(public_path('/uploads/users/thumb/'.$newName));
-		}
-        $team_id = '';
-        $input['image'] = $newName;
-        $input['password'] = bcrypt($input['password']);
-        $input['role_id'] = '4';
-        $input['is_active'] = 1;
-        $input['job_title'] = $input['job_title'];
-        $input['delivery_address'] = $input['delivery_address'];
-        $input['delivery_address2'] = $input['delivery_address2'];
-        $input['city'] = $input['city'];
-        $input['country'] = $input['country'];
-        $input['postcode'] = $input['postcode'];
         
-        if (!empty($request->input('team_id'))) {
-            $team = TeamId::where('team_id', $request->input('team_id'))->first();
-            if (isset($team)) {
-                $team_id = $team->id;
-            }
-        }
-
-        $input['team_id'] = $team_id;
-
-        if($input['company_id']!=='')
-        {
-            $company = Company::where("name",$input['company_id'])->first();
-            if(isset($company))
-            {
-                $companyId = $company->id;
-            }
-            // else
-            // {
-            //     $company = new Company();
-            //     $company->name = $input['company_id'];
-            //     $company->save();
-            //     $companyId = $company->id;
-            // }
-
-            $input['company_id'] = $companyId;
-        }
+       // $input['image'] = $newName;
+        $input['password'] = bcrypt($input['password']);
+        $input['role_id'] = '10';
+        $input['is_active'] = 1;
+        
 
         //pr($input); die;
-        $user = User::with('team')->create($input);
+        $user = User::create($input);
         $user->attachRole(4);
         $success['token'] =  $user->createToken('MyApp')->accessToken;
         $success['name'] =  $user->name;
         $success['lname'] =  $user->lname;
-        $success['company'] =  $user->company->name;
-       if(isset($user->team)){  $success['team_id'] =  $user->team['team_id'];}else { $success['team_id'] =  '';};
-        $success['job_title'] =  $user->job_title;
-        $success['delivery_address'] =  $user->delivery_address;
-        $success['delivery_address2'] =  $user->delivery_address2;
-        $success['city'] =  $user->city;
-        $success['country'] =  $user->country;
-        $success['postcode'] =  $user->postcode;
         $success['name'] =  $user->name;
-        $success['image'] =  url('/uploads/users/'.$user->image);
         $success['email'] =  $user->email;
         
-        Mail::to($input['email'],'Registration Email')->send(new sendAPIRegisterToTechnicianMailable($input)); 
+        //Mail::to($input['email'],'Registration Email')->send(new sendAPIRegisterToTechnicianMailable($input)); 
 
         $admin = User::where("role_id",1)->first();
-        $tm = User::where("id",$user->company->owner)->first();
-        $emails = [$admin->email, $tm->email];
-        Mail::to($emails,'New Technician Registered')->send(new RegisterToTechnicianAdminMailable($success));
+        $emails = [$admin->email, $user->email];
+       // Mail::to($emails,'New User Registered')->send(new RegisterToTechnicianAdminMailable($success));
 
         return $this->sendResponse($success, 'User has been registered successfully.');
     }
@@ -325,40 +242,7 @@ class RegisterController extends BaseController
         
     }
 
-    public function teamidValidate(Request $request)
-    {
-
-        $validator = Validator::make($request->all(), [
-            'team_id' => 'required',
-            'company_id' => 'required',
-        ],
-        [
-        ]);
    
-        if($validator->fails()){
-           $errors = $validator->errors();
-           $errorMsg = '';
-           if($errors->first('team_id'))
-               $errorMsg = $errors->first('team_id');   
-           if($errors->first('company_id'))
-               $errorMsg = $errors->first('company_id');        
-           return $this->sendError($errorMsg);        
-        }
-
-		$users = TeamId::where('team_id', $request->team_id)->where('company_id', $request->company_id)->count();
-		if($users== 0)
-		{
-			$errorMsg = 'Invalid team ID';
-			return $this->sendError($errorMsg);
-		}
-		else
-		{
-			$success = [];
-			 return $this->sendResponse($success, '');
-		}
-
-        
-    }
 
     
 }

@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\API\CommonController;
 use App\Http\Controllers\API\RegisterController;
-
+use App\Http\Controllers\API\ProfileController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -19,7 +19,13 @@ use App\Http\Controllers\API\RegisterController;
 
 
 Route::post('login', [RegisterController::class, 'login']);
+Route::post('register', [RegisterController::class, 'register']);
 Route::middleware(['auth:api'])->group(function () {
+
+    Route::post('profile', [ProfileController::class, 'profile']);
+    Route::post('update-profile', [ProfileController::class, 'profileUpdate']);
+    Route::post('update-profile-image', [ProfileController::class, 'profilePicUpdate']);
+    Route::post('change-password', [ProfileController::class, 'changepassword']);
 });
 
 Route::fallback(function(){
